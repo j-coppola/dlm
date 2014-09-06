@@ -26,12 +26,6 @@ GRAV_DOWN = 200
 # Left / right gravity (negative is right)
 GRAV_RIGHT = -300
 
-# Gravity on the menu screen
-MENU_GRAV = -50
-
-# Determines the size of my face on the title screen
-MIN_STAREJOSH_FACTOR = 5
-MAX_STAREJOSH_FACTOR = 40
 
 
 def to_pygame(x, y):
@@ -150,31 +144,6 @@ def draw_objects():
         if game_state == 'mri':
             dodged_objects += 1
         
-
-def figure_out_taunt_message():
-    
-    posx = player.body.position[0]
-    
-    xmsg = ''
-    
-    if posx < -95:
-        xmsg = ''
-    elif posx < 0:
-        xmsg = 'Amost...'
-    elif posx < 200:
-        xmsg = 'So close!'
-    elif posx < 400:
-        xmsg = 'You can do it!'
-    elif posx < 1000:
-        xmsg = 'Keep moving towards the computer!'
-    elif posx > 1000:
-        xmsg = 'Too close for comfort...'
-    elif posx > 800:
-        xmsg = 'Oh no!'
-    elif posx > 1150:
-        xmsg = ''
-    
-    return xmsg
         
 def render_all():
     ## Render background screen
@@ -183,110 +152,88 @@ def render_all():
     draw_objects()
     draw_lines(screen, lines)
     
-    if game_state == 'mri':
-        # display level
-        label = font.render("Level " + str(current_level), 1, (255, 255, 255))
-        dlabel = font.render("Dodged %i Delongs so far"%dodged_objects, 1, (255, 255, 255))
+
+    # display level
+    label = font.render("Level " + str(current_level), 1, (255, 255, 255))
+    dlabel = font.render("Dodged %i Delongs so far"%dodged_objects, 1, (255, 255, 255))
+    
+    #### controls
+    clabel1 = font.render("Left arrow (keep tapping): move left", 1, (255, 255, 255))
+    clabel2 = font.render("Up / down arrows: awkwardly rotate", 1, (255, 255, 255))
+    clabel3 = font.render("Space: Jump", 1, (255, 255, 255))
+    clabel4 = font.render("Escape: Admit defeat / return to main menu", 1, (255, 255, 255))
+    
+    # Blitting
+    screen.blit(label, (25, 50))
+    screen.blit(dlabel, (25, 70))
+    #screen.blit(tlabel, (int(SCREEN_WIDTH/2), 65))
+    
+    screen.blit(clabel1, (25, 130))
+    screen.blit(clabel2, (25, 150))
+    screen.blit(clabel3, (25, 170))
+    screen.blit(clabel4, (25, 190))
         
-        xmsg = figure_out_taunt_message()
-        tlabel = font.render(xmsg, 1, (255, 255, 255))
-        
-        #### controls
-        clabel1 = font.render("Left arrow (keep tapping): move left", 1, (255, 255, 255))
-        clabel2 = font.render("Up / down arrows: awkwardly rotate", 1, (255, 255, 255))
-        clabel3 = font.render("Space: Jump", 1, (255, 255, 255))
-        clabel4 = font.render("Escape: Admit defeat / return to main menu", 1, (255, 255, 255))
-        
-        # Blitting
-        screen.blit(label, (25, 50))
-        screen.blit(dlabel, (25, 70))
-        screen.blit(tlabel, (int(SCREEN_WIDTH/2), 65))
-        
-        screen.blit(clabel1, (25, 130))
-        screen.blit(clabel2, (25, 150))
-        screen.blit(clabel3, (25, 170))
-        screen.blit(clabel4, (25, 190))
-        
-        
-    elif game_state == 'main menu':
-        label = font.render("Press g to play the game!", 1, (255, 255, 255))
-        screen.blit(label, (700, 550))
-        
-        label2 = font.render("(Or click and drag and see what happens)", 1, (255, 255, 255))
-        screen.blit(label2, (700, 600))
     
     pygame.display.flip()
     
 def handle_keys():
-    global spawn_objects, game_state
-    
-    if game_state == 'main menu':
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                spawn_objects = True
-            elif event.type == pygame.MOUSEBUTTONUP:
-                spawn_objects = False			
+    global spawn_objects
+
+    for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            spawn_objects = True
+        elif event.type == pygame.MOUSEBUTTONUP:
+            spawn_objects = False			
             
-            elif event.type == KEYDOWN and event.key == K_g:
-                game_state == 'mri'
-                play_mri()
+        elif event.type == KEYDOWN and event.key == K_LEFT:				
+            if player.body.velocity[0] > -125:
+                player.body.velocity[0] -= 150
             
+        elif event.type == KEYDOWN and event.key == K_RIGHT:
+            if player.body.velocity[0] < 125:
+                player.body.velocity[0] += 150
+                
+        elif event.type == KEYDOWN and event.key == K_UP:
+            if player.body.angular_velocity > -8:
+                player.body.angular_velocity -= 3		
             
-            if spawn_objects:
-                mx, my = pygame.mouse.get_pos()
-                mx, my = to_pygame(mx, my)
-                ## Add obj
-                mass = 1
-                #radius = 64
-                sprite = random.choice(['josh.png', 'delong.png'])
-                add_object(space, mx, my, mass, sprite)			
-            # Huh?
-            elif event.type == QUIT:
-                return True
-            # Exit on escape
-            elif event.type == KEYDOWN and event.key == K_ESCAPE:
-                return True
-                
-    ##############################################################
-    elif game_state == 'mri':
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                spawn_objects = True
-            elif event.type == pygame.MOUSEBUTTONUP:
-                spawn_objects = False			
-                
-            elif event.type == KEYDOWN and event.key == K_LEFT:				
-                if player.body.velocity[0] > -125:
-                    player.body.velocity[0] -= 150
-                
-            elif event.type == KEYDOWN and event.key == K_RIGHT:
-                if player.body.velocity[0] < 125:
-                    player.body.velocity[0] += 150
-                    
-            elif event.type == KEYDOWN and event.key == K_UP:
-                if player.body.angular_velocity > -8:
-                    player.body.angular_velocity -= 3		
-                
-            elif event.type == KEYDOWN and event.key == K_DOWN:
-                if player.body.angular_velocity < 8:
-                    player.body.angular_velocity += 3
+        elif event.type == KEYDOWN and event.key == K_DOWN:
+            if player.body.angular_velocity < 8:
+                player.body.angular_velocity += 3
+        
+        elif event.type == KEYDOWN and event.key == K_SPACE:
+            points = player.shape.get_points()
+            if points[2][1] <= 100 and points[3][1] <= 100:
+                player.body.velocity[1] += 250
             
-            elif event.type == KEYDOWN and event.key == K_SPACE:
-                points = player.shape.get_points()
-                if points[2][1] <= 100 and points[3][1] <= 100:
-                    player.body.velocity[1] += 250
-                
-            # Huh?
-            elif event.type == QUIT:
-                return True
-            # Exit on escape
-            elif event.type == KEYDOWN and event.key == K_ESCAPE:
-                return True
+        # Huh?
+        elif event.type == QUIT:
+            return True
+        # Exit on escape
+        elif event.type == KEYDOWN and event.key == K_ESCAPE:
+            return True
                 
                
         
 def play_mri():
     global objects, lines, space, clock, spawn_objects, game_state, mri_mach, bg, player, current_level, dodged_objects
+    global screen, font
+    
+    pygame.init()
+    font = pygame.font.Font("freesansbold.ttf", 16) 
+    
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption("Delongestmile")
+    
+    bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
+    bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
+    ## For menu background ##
+    #clock = pygame.time.Clock()
+    
+    lines = []
+    objects = []
+    
+    
     game_state = 'mri'
     current_level = 1
     dodged_objects = 0
@@ -431,70 +378,7 @@ def spawn_projectile(image):
         
     return projectile
     
-def spawn_menu_josh(x, y):
-    mass = random.randint(20, 75)
-    
-    sprite_size = random.randint(MIN_STAREJOSH_FACTOR, MAX_STAREJOSH_FACTOR)
-    sprite_size = int(sprite_size/10)
-
-    sprite = 'josh.png'
-    add_object(space, x, y, mass, sprite, sprite_size)
-
-def setup_main():
-    global screen, bg, objects, lines, space, clock, spawn_objects, game_state, font
-    
-    game_state = 'main menu'
-    
-    bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
-    bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
-    
-    ## For menu background ##
-    clock = pygame.time.Clock()
-    
-    space = pymunk.Space()
-    space.gravity = (0.0, MENU_GRAV)
-    
-    lines = []
-    objects = []
-    
-    spawn_objects = False
-    ## Add some copies of my face to stare at you and fall down the menu screen
-    for i in xrange(5):
-        x, y = ( random.randint(0, SCREEN_WIDTH), random.randint(100, SCREEN_HEIGHT-100) )
-        x, y = to_pygame(x, y)
-        spawn_menu_josh(x, y)
-    
-def main():
-    global screen, bg, objects, lines, space, clock, spawn_objects, game_state, font
-    
-    pygame.init()
-    font = pygame.font.Font("freesansbold.ttf", 16) 
-    
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Delongestmile")
-    
-    setup_main()
-    
-    exit_game = False
-    
-    while not exit_game:
-        # Spawn some joshes
-        if random.randint(0, 100) > 95:
-            x, y = ( random.randint(0, SCREEN_WIDTH), -300 )
-            x, y = to_pygame(x, y)
-            ## Add obj
-            spawn_menu_josh(x, y)
-    
-        # Handle keys and check for exit
-        exit_game = handle_keys()
-        # Render the screen
-        render_all()
-        
-        # Advance game pace
-        space.step(1/50.0)
-        #pygame.display.flip()
-        clock.tick(50)
-    
         
 if __name__ == '__main__':
-    sys.exit(main())
+    #sys.exit(main())
+    sys.exit(play_mri())
