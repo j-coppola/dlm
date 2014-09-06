@@ -77,7 +77,7 @@ class GObject(pygame.sprite.Sprite):
         self.shape = pymunk.Poly(self.body, points, (0, 0) )
         self.shape.friction = DEFAULT_FRICTION_AMT
         
-        space.add(self.body, self.shape)
+        game.space.add(self.body, self.shape)
         
     def draw(self):	
         ''' Took me 6 goddamn days to get this code correct... '''		
@@ -93,35 +93,15 @@ class GObject(pygame.sprite.Sprite):
         screen.blit(rotated_img, p)
         
     def remove(self):
-        space.remove(self.body, self.shape)
-        objects.remove(self)
+        game.space.remove(self.body, self.shape)
+        game.objects.remove(self)
 
 
-def add_line(space, x1, y1, x2, y2, visible=1):
-    ''' Adds a solid line to the game space. Used to set the floor in the current version '''
-    body = pymunk.Body()
-    line = pymunk.Segment(body, (x1, y1), (x2, y2), 10)
-    line.radius = 20
-    line.friction = .6
+
     
-    # Hack to prevent lines from rendering if they're not marked as visible
-    if visible:
-        lines.append(line)
-        
-    space.add(line)
-    
-    
-def add_object(space, x, y, mass, sprite, sprite_size=None):
-    ''' Adds an object to the game space '''
-    obj = GObject(space, x, y, mass,  sprite, sprite_size)
-    objects.append( obj )
-    
-    return obj
-    
-    
-def draw_lines(screen, lines):
+def draw_lines():
     ''' Draw any lines in the "lines" list '''
-    for line in lines:
+    for line in game.lines:
         body = line.body
         pv1 = body.position + line.a.rotated(body.angle)
         pv2 = body.position + line.b.rotated(body.angle)
@@ -131,9 +111,8 @@ def draw_lines(screen, lines):
 
         
 def draw_objects():
-    global dodged_objects
     objects_to_remove = []
-    for obj in objects:
+    for obj in game.objects:
         if obj.body.position.y < -500:
             objects_to_remove.append(obj)
         
@@ -141,8 +120,7 @@ def draw_objects():
     
     for obj in objects_to_remove:
         obj.remove()
-        if game_state == 'mri':
-            dodged_objects += 1
+        game.dodged_objects += 1
         
         
 def render_all():
@@ -150,12 +128,12 @@ def render_all():
     screen.blit(bg, (0, 0) )
     ## Draw objects and lines
     draw_objects()
-    draw_lines(screen, lines)
+    draw_lines()
     
 
     # display level
-    label = font.render("Level " + str(current_level), 1, (255, 255, 255))
-    dlabel = font.render("Dodged %i Delongs so far"%dodged_objects, 1, (255, 255, 255))
+    label = font.render("Level " + str(game.current_level), 1, (255, 255, 255))
+    dlabel = font.render("Dodged %i Delongs so far"%game.dodged_objects, 1, (255, 255, 255))
     
     #### controls
     clabel1 = font.render("Left arrow (keep tapping): move left", 1, (255, 255, 255))
@@ -216,8 +194,8 @@ def handle_keys():
                
         
 def play_mri():
-    global objects, lines, space, clock, spawn_objects, game_state, mri_mach, bg, player, current_level, dodged_objects
-    global screen, font
+    global clock, spawn_objects, bg, player
+    global screen, font, game
     
     pygame.init()
     font = pygame.font.Font("freesansbold.ttf", 16) 
@@ -227,23 +205,18 @@ def play_mri():
     
     bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
     bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
-    ## For menu background ##
-    #clock = pygame.time.Clock()
+
+    game = GameWorld()
     
-    lines = []
-    objects = []
-    
-    
-    game_state = 'mri'
-    current_level = 1
-    dodged_objects = 0
     
     bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
     bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
     
     clock = pygame.time.Clock()
     
-    start_level()
+    
+    game.start_level()
+    
     
     render_all()
     ## Text
@@ -275,25 +248,25 @@ def play_mri():
     exit_game = False
     while not exit_game:
         #spawn stuff
-        check_for_spawn_based_on_level(current_level)
+        game.check_for_spawn_based_on_level()
         # Handle keys and check for exit
         exit_game = handle_keys()
         # Render the screen
         render_all()
         
         # Advance game pace
-        space.step(1/50.0)
+        game.space.step(1/50.0)
         #pygame.display.flip()
         clock.tick(50)	
 
         # Level is won!
         if player.body.position[0] < 200:
-            for obj in objects[:]:
+            for obj in game.objects[:]:
                 if obj != player:
-                    dodged_objects += 1
+                    game.dodged_objects += 1
 
             # Display win text
-            label = font.render('Level ' + str(current_level) + ' complete', 1, (255, 255, 255))
+            label = font.render('Level ' + str(game.current_level) + ' complete', 1, (255, 255, 255))
             screen.blit(label, (SCREEN_WIDTH/2, 100))
             pygame.display.flip()
             time.sleep(1.5)
@@ -315,8 +288,8 @@ def play_mri():
                         break
             
             
-            current_level += 1
-            start_level()
+            game.current_level += 1
+            game.start_level()
             
         # Level is lost!
         elif player.body.position[0] > SCREEN_WIDTH + GRACE_ZONE:
@@ -332,44 +305,21 @@ def play_mri():
                         break_out = 1
                         break
             
-            current_level = 1
-            dodged_objects = 0
-            start_level()
+            game.current_level = 1
+            game.dodged_objects = 0
+            game.start_level()
             
     setup_main()
     
-def start_level():
-    global space, lines, objects, player
-    
-    
-    space = pymunk.Space()
-    space.gravity = (GRAV_DOWN, GRAV_RIGHT)
-    
-    lines = []
-    # Horizontal
-    add_line(space, -100, -15, SCREEN_WIDTH+100, -15, visible=1)
-    # Vertical
-    #add_line(space, 25, 250, 25, SCREEN_HEIGHT * 2, visible=1)
-    
-    objects = []
-    player = add_object(space=space, x=1000, y=100, mass=100, sprite='josh_and_body.png')
-    player.body.velocity[0] = -150
-    
-            
-def check_for_spawn_based_on_level(level):
-    if random.randint(1, 1000) <= 75 + ((level+4)**2):
-        #####
-        obj = 'delong.png'
-        spawn_projectile(obj)
     
 def spawn_projectile(image):
     y = random.randint(100, 500)
 
-    mass = 15 + (10 * current_level)
+    mass = 15 + (10 * game.current_level)
     
     sprite_size = 1
     
-    projectile = add_object(space=space, x=-50, y=y, mass=mass, sprite=image, sprite_size=sprite_size)
+    projectile = game.add_object(x=-50, y=y, mass=mass, sprite=image, sprite_size=sprite_size)
     projectile.body.velocity[0] = random.randint(400, 550)
     projectile.body.velocity[1] = random.randint(15, 150)
     projectile.body.angular_velocity = ( random.choice([-10, -9, -8, -7, -6, -5, 5, 6, 7, 8, 9, 10]) )
@@ -378,7 +328,61 @@ def spawn_projectile(image):
         
     return projectile
     
+    
+class GameWorld:
+    def __init__(self):        
+        self.objects = []
+        self.lines = []
         
+        self.current_level = 1
+        self.dodged_objects = 0
+        
+        
+    def start_level(self):
+        global player
+        
+        self.lines = [] 
+        self.objects = []
+        
+        self.space = None
+        self.space = pymunk.Space()
+        self.space._set_gravity((GRAV_DOWN, GRAV_RIGHT))
+        
+        # Horizontal
+        self.add_line(-100, -15, SCREEN_WIDTH+100, -15, visible=1)
+        # Vertical
+        #add_line(25, 250, 25, SCREEN_HEIGHT * 2, visible=1)
+        
+        player = self.add_object(x=1000, y=100, mass=100, sprite='josh_and_body.png')
+        player.body.velocity[0] = -150        
+            
+        
+    def add_object(self, x, y, mass, sprite, sprite_size=None):
+        ''' Adds an object to the game space '''
+        obj = GObject(self.space, x, y, mass,  sprite, sprite_size)
+        self.objects.append(obj)
+    
+        return obj
+    
+    def add_line(self, x1, y1, x2, y2, visible=1):
+        ''' Adds a solid line to the game space. Used to set the floor in the current version '''
+        body = pymunk.Body()
+        line = pymunk.Segment(body, (x1, y1), (x2, y2), 10)
+        line.radius = 20
+        line.friction = .6
+        
+        # Hack to prevent lines from rendering if they're not marked as visible
+        if visible:
+            self.lines.append(line)
+            
+        self.space.add(line)
+
+    def check_for_spawn_based_on_level(self):
+        if random.randint(1, 1000) <= 75 + ((self.current_level+4)**2):
+            obj = 'delong.png'
+            spawn_projectile(obj)
+        
+    
 if __name__ == '__main__':
     #sys.exit(main())
     sys.exit(play_mri())
