@@ -13,6 +13,9 @@ import time
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 700
 
+TEXT_COLOR_MAIN = (255, 255, 255)
+PLAY_MUSIC = 1
+
 PYMUNK_Y_OFFSET = SCREEN_HEIGHT # No idea 
 
 # How far off to the right of the screen you can go before losing (in pixels)
@@ -31,25 +34,57 @@ INITIAL_PROJECTILE_Y_LOW  = 100
 INITIAL_PROJECTILE_Y_HIGH = 500
 
 # How heavy projectiles are at the beginning of the game
-PROJECTILE_MASS_INITIAL = 5
+PROJECTILE_MASS_INITIAL = 15
 # How much each additional level adds to the mass
-PROJECTILE_MASS_INCREMENT = 5
+PROJECTILE_MASS_INCREMENT = 10
 
 # controls bouncieness of projectiles (between 0 and .99)
 PROJECTILE_ELASTICITY = .5
+
+# Base size of projectile
+PROJECTILE_SIZE_BASE = 1
+# How much each additional level adds onto the base projectile size (decimals OK)
+PROJECTILE_SIZE_LEVEL_MODIFIER = 0
+
+# Controls the starting velocity of projectiles (picks a random integer between the high and low values)
+PROJECTILE_X_VELOCITY_LOW  = 400
+PROJECTILE_X_VELOCITY_HIGH = 550
+
+PROJECTILE_Y_VELOCITY_LOW  = 15
+PROJECTILE_Y_VELOCITY_HIGH = 150
+
+# Starting X velocity of the player (negative is left)
+PLAYER_STARTING_VELOCITY = -150
+
+PLAYER_VELOCITY_SIDEWAYS_MAX = 150
+# Max angular velocity
+PLAYER_VELOCITY_ANGULAR_MAX = 8
+# How much angular velocity each click of the rotate buttons will cause
+PLAYER_VELOCITY_ANGULAR_AMT = 3
+
+# How close to the ground your feet have to be to jump (pixels)
+PLAYER_JUMP_THRESHHOLD = 100
+# How much verticle velocity a jump adds
+PLAYER_VELOCITY_JUMP_AMT = 250
+
+PLAYER_MASS = 100
+
+
+
+
+
 
 def to_pygame(x, y):
     """Small hack to convert pymunk to pygame coordinates"""
     return x, -y + PYMUNK_Y_OFFSET
 
     
-def load_image(name):
+def load_image(path):
     # From http://www.pygame.org/docs/tut/chimp/ChimpLineByLine.html
-    fullname = os.path.join('assets', name)
     try:
-        image = pygame.image.load(fullname)
+        image = pygame.image.load(path)
     except pygame.error, message:
-        print 'Cannot load image:', name
+        print 'Cannot load image:', path
         raise SystemExit, message
     image = image.convert_alpha()
     return image, image.get_rect()
@@ -68,7 +103,7 @@ class GObject(pygame.sprite.Sprite):
         
         # This will resize the sprite if we've resized it
         if sprite_size:
-            self.image = pygame.transform.scale(self.image, (self.width * sprite_size, self.height * sprite_size) )
+            self.image = pygame.transform.scale(self.image, (int(self.width * sprite_size), int(self.height * sprite_size) ))
     
         self.space = space
         self.mass = mass
@@ -108,6 +143,7 @@ class GObject(pygame.sprite.Sprite):
         
     
 class RenderHandler():
+    ''' Handles rendering-related functions '''
     def render_all(self):
         ## Render background screen
         screen.blit(bg, (0, 0) )
@@ -117,24 +153,24 @@ class RenderHandler():
         
 
         # display level
-        label = font.render("Level " + str(game.current_level), 1, (255, 255, 255))
-        dlabel = font.render("Dodged %i Delongs so far"%game.dodged_objects, 1, (255, 255, 255))
+        label = font.render("Level " + str(game.current_level), 1, TEXT_COLOR_MAIN)
+        dlabel = font.render("Dodged %i Delongs so far"%game.dodged_objects, 1, TEXT_COLOR_MAIN)
         
         #### controls
-        clabel1 = font.render("Left arrow (keep tapping): move left", 1, (255, 255, 255))
-        clabel2 = font.render("Up / down arrows: awkwardly rotate", 1, (255, 255, 255))
-        clabel3 = font.render("Space: Jump", 1, (255, 255, 255))
-        clabel4 = font.render("Escape: Admit defeat / return to main menu", 1, (255, 255, 255))
+        clabel1 = font.render("Left arrow (keep tapping): move left", 1, TEXT_COLOR_MAIN)
+        clabel2 = font.render("Up / down arrows: awkwardly rotate", 1, TEXT_COLOR_MAIN)
+        clabel3 = font.render("Space: Jump", 1, TEXT_COLOR_MAIN)
+        clabel4 = font.render("Escape: Quit!", 1, TEXT_COLOR_MAIN)
         
         # Blitting
-        screen.blit(label, (25, 50))
-        screen.blit(dlabel, (25, 70))
+        screen.blit(label, (30, 40))
+        screen.blit(dlabel, (30, 60))
         #screen.blit(tlabel, (int(SCREEN_WIDTH/2), 65))
         
-        screen.blit(clabel1, (25, 130))
-        screen.blit(clabel2, (25, 150))
-        screen.blit(clabel3, (25, 170))
-        screen.blit(clabel4, (25, 190))
+        screen.blit(clabel1, (30, 115))
+        screen.blit(clabel2, (30, 140))
+        screen.blit(clabel3, (30, 165))
+        screen.blit(clabel4, (30, 190))
             
         
         pygame.display.flip()    
@@ -169,25 +205,30 @@ class InputHandler():
         ''' Handle keypresses during game '''
         for event in pygame.event.get():
             if event.type == KEYDOWN and event.key == K_LEFT:				
-                if player.body.velocity[0] > -125:
-                    player.body.velocity[0] -= 150
+                if player.body.velocity[0] > -PLAYER_VELOCITY_SIDEWAYS_MAX:
+                    player.body.velocity[0] -= PLAYER_VELOCITY_SIDEWAYS_MAX
                 
             elif event.type == KEYDOWN and event.key == K_RIGHT:
-                if player.body.velocity[0] < 125:
-                    player.body.velocity[0] += 150
+                if player.body.velocity[0] < PLAYER_VELOCITY_SIDEWAYS_MAX:
+                    player.body.velocity[0] += PLAYER_VELOCITY_SIDEWAYS_MAX
                     
             elif event.type == KEYDOWN and event.key == K_UP:
-                if player.body.angular_velocity > -8:
-                    player.body.angular_velocity -= 3		
+                if player.body.angular_velocity > -PLAYER_VELOCITY_ANGULAR_MAX:
+                    player.body.angular_velocity -= PLAYER_VELOCITY_ANGULAR_AMT
                 
             elif event.type == KEYDOWN and event.key == K_DOWN:
-                if player.body.angular_velocity < 8:
-                    player.body.angular_velocity += 3
+                if player.body.angular_velocity < PLAYER_VELOCITY_ANGULAR_MAX:
+                    player.body.angular_velocity += PLAYER_VELOCITY_ANGULAR_AMT
             
             elif event.type == KEYDOWN and event.key == K_SPACE:
                 points = player.shape.get_points()
-                if points[2][1] <= 100 and points[3][1] <= 100:
-                    player.body.velocity[1] += 250
+                if points[2][1] <= 100 and points[3][1] <= PLAYER_JUMP_THRESHHOLD:
+                    player.body.velocity[1] += PLAYER_VELOCITY_JUMP_AMT
+                    
+                    
+            if event.type == KEYDOWN and event.key == K_LCTRL:
+                player.body.velocity[0] -= 700
+                player.body.velocity[1] += 100
                 
             # Huh?
             elif event.type == QUIT:
@@ -215,6 +256,11 @@ class GameWorld:
         self.current_level = 1
         self.dodged_objects = 0
         
+        # Find all files in the projectiles folder (non-images would cause a crash for now). These will be randomly chosen from
+        self.projectiles = [os.path.join('assets', 'projectiles', img) for img in os.listdir(os.path.join('assets', 'projectiles'))]
+        # Same for music files
+        self.music_files = [os.path.join('assets', 'music', music_file) for music_file in os.listdir(os.path.join('assets', 'music'))]
+        
         
     def start_level(self):
         global player
@@ -231,12 +277,16 @@ class GameWorld:
         # Vertical
         #add_line(25, 250, 25, SCREEN_HEIGHT * 2, visible=1)
         
-        player = self.add_object(x=1000, y=100, mass=100, sprite='josh_and_body.png')
-        player.body.velocity[0] = -150        
+        player = self.add_object(x=1000, y=100, mass=PLAYER_MASS, sprite=os.path.join('assets', 'player.png'))
+        player.body.velocity[0] = PLAYER_STARTING_VELOCITY        
         
         render_handler.render_all()
         if self.current_level == 1:
-            ## Text
+            # Start music
+            if PLAY_MUSIC:
+                pygame.mixer.music.load(random.choice(self.music_files))
+                pygame.mixer.music.play(-1)
+            # Render some descriptive text on the first level
             des1 = 'Oh no! I just realized I forgot to lock my computer!'
             des2 = 'Move towards my desk by repeatedly tapping the left arrow key!'
             des3 = 'Awkwardly spin me by pressing up or down arrow keys!'
@@ -244,13 +294,13 @@ class GameWorld:
             descs = [des1, des2, des3, des4, '', 'Press left arrow to begin! (Escape will exit to menu)']
             for i, line in enumerate(descs):
                 label = font.render(line, 1, (200, 50, 50))
-                screen.blit(label, (400, 100+(i*50)))
+                screen.blit(label, (400, 40+(i*40)))
         
             pygame.display.flip()
-        
+            
+        # Wait for user input to begin the level    
         input_handler.handle_level_begin()
             
-        
         
     def spawn_projectile(self, image):
         ''' Handles spawning a projectile (in this case, Delong) '''
@@ -258,11 +308,13 @@ class GameWorld:
 
         mass = PROJECTILE_MASS_INITIAL + (PROJECTILE_MASS_INCREMENT * (game.current_level-1))
         
-        sprite_size = 1
+        sprite_size = PROJECTILE_SIZE_BASE + (PROJECTILE_SIZE_LEVEL_MODIFIER * game.current_level)
         
         projectile = self.add_object(x=-50, y=y, mass=mass, sprite=image, sprite_size=sprite_size)
-        projectile.body.velocity[0] = random.randint(400, 550)
-        projectile.body.velocity[1] = random.randint(15, 150)
+        # Set initial projectile velocity
+        velocity = (random.randint(PROJECTILE_X_VELOCITY_LOW, PROJECTILE_X_VELOCITY_HIGH), random.randint(PROJECTILE_Y_VELOCITY_LOW, PROJECTILE_Y_VELOCITY_HIGH))
+        projectile.body._set_velocity(velocity)
+        
         projectile.body.angular_velocity = ( random.choice([-10, -9, -8, -7, -6, -5, 5, 6, 7, 8, 9, 10]) )
         
         projectile.shape._set_elasticity(PROJECTILE_ELASTICITY)
@@ -291,8 +343,8 @@ class GameWorld:
 
     def check_for_spawn_based_on_level(self):
         if random.randint(1, 1000) <= 75 + ((self.current_level+4)**2):
-            obj = 'delong.png'
-            self.spawn_projectile(obj)
+            image = random.choice(self.projectiles)
+            self.spawn_projectile(image=image)
         
     
     
@@ -301,24 +353,19 @@ def main():
     global screen, font, game, input_handler, render_handler
     
     pygame.init()
-    font = pygame.font.Font("freesansbold.ttf", 16) 
+    font = pygame.font.Font("freesansbold.ttf", 20) 
     
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("DeLongest Mile")
     
     bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
     bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
-
+    
     input_handler = InputHandler()
     render_handler = RenderHandler()
     game = GameWorld()
     
-    
-    bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
-    bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
-    
     clock = pygame.time.Clock()
-    
     
     game.start_level()
     
@@ -343,7 +390,7 @@ def main():
                     game.dodged_objects += 1
 
             # Display win text
-            label = font.render('Level {0} complete'.format(game.current_level), 1, (255, 255, 255))
+            label = font.render('Level {0} complete'.format(game.current_level), 1, TEXT_COLOR_MAIN)
             screen.blit(label, (SCREEN_WIDTH/2, 100))
             pygame.display.flip()
             time.sleep(1.5)
@@ -352,7 +399,7 @@ def main():
             for event in pygame.event.get():
                 pass
             
-            llabel = font.render('Press left arrow to begin next level', 1, (255, 255, 255))
+            llabel = font.render('Press left arrow to begin next level', 1, TEXT_COLOR_MAIN)
             screen.blit(llabel, (SCREEN_WIDTH/2, 120))
             pygame.display.flip()
 
@@ -361,8 +408,8 @@ def main():
             
         # Level is lost!
         elif player.body.position[0] > SCREEN_WIDTH + GRACE_ZONE:
-            label = font.render('Delong got the better of you.', 1, (255, 255, 255))
-            label2 = font.render('Press Left arrow to restart from Level 1', 1, (255, 255, 255))
+            label = font.render('Delong got the better of you.', 1, TEXT_COLOR_MAIN)
+            label2 = font.render('Press Left arrow to restart from Level 1', 1, TEXT_COLOR_MAIN)
             screen.blit(label, (SCREEN_WIDTH/2, 100))
             screen.blit(label2, (SCREEN_WIDTH/2, 150))
             pygame.display.flip()
