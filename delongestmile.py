@@ -30,9 +30,9 @@ GRACE_ZONE = int(config.get('game', 'GRACE_ZONE'))
 DEFAULT_FRICTION_AMT = float(config.get('game', 'DEFAULT_FRICTION_AMT'))
 
 # Downward gravity (negative will cause things to drop upwards)
-GRAV_DOWN = int(config.get('game', 'GRAV_DOWN'))
+GRAV_VERT = int(config.get('game', 'GRAV_VERT'))
 # Left / right gravity (negative is right)
-GRAV_RIGHT = int(config.get('game', 'GRAV_RIGHT'))
+GRAV_HORIZ = int(config.get('game', 'GRAV_HORIZ'))
 
 ############## PROJECTILE PARAMETERS ###########################
 # Every tick, the game rolls a number between 1 and 1000. 
@@ -75,6 +75,10 @@ PLAYER_VELOCITY_ANGULAR_MAX = int(config.get('player', 'PLAYER_VELOCITY_ANGULAR_
 # How much angular velocity each click of the rotate buttons will cause
 PLAYER_VELOCITY_ANGULAR_AMT = int(config.get('player', 'PLAYER_VELOCITY_ANGULAR_AMT'))
 
+# Velocity of dashing (ignores the sideways max velocity)
+PLAYER_VELOCITY_DASH_X = -700
+PLAYER_VELOCITY_DASH_Y = 100
+
 # How close to the ground your feet have to be to jump (pixels)
 PLAYER_JUMP_THRESHHOLD = int(config.get('player', 'PLAYER_JUMP_THRESHHOLD'))
 # How much verticle velocity a jump adds
@@ -82,6 +86,26 @@ PLAYER_VELOCITY_JUMP_AMT = int(config.get('player', 'PLAYER_VELOCITY_JUMP_AMT'))
 
 PLAYER_MASS = int(config.get('player', 'PLAYER_MASS'))
 
+# Amount of energy player starts with
+PLAYER_ENERGY_START = float(config.get('player', 'PLAYER_ENERGY_START'))
+
+# How much energy the player gets each tick
+PLAYER_ENERGY_PER_TICK = float(config.get('player', 'PLAYER_ENERGY_PER_TICK'))
+
+# Maximum amount of energy the player is allowed
+PLAYER_ENERGY_MAX = float(config.get('player', 'PLAYER_ENERGY_MAX'))
+
+# How much energy it costs to move
+PLAYER_ENERGY_MOVE_COST = float(config.get('player', 'PLAYER_ENERGY_MOVE_COST'))
+
+# How much energy it costs to rotate
+PLAYER_ENERGY_SPIN_COST = float(config.get('player', 'PLAYER_ENERGY_SPIN_COST'))
+
+# How much energy it costs to rotate
+PLAYER_ENERGY_JUMP_COST = float(config.get('player', 'PLAYER_ENERGY_JUMP_COST'))
+
+# How much energy the "dash" move costs
+PLAYER_ENERGY_DASH_COST = float(config.get('player', 'PLAYER_ENERGY_DASH_COST'))
 
 
 def pymunk_to_pygame(x, y):
@@ -172,7 +196,13 @@ class RenderHandler():
         clabel1 = font.render("Left arrow (mash): move left", 1, TEXT_COLOR_MAIN)
         clabel2 = font.render("Up / down arrows: rotate", 1, TEXT_COLOR_MAIN)
         clabel3 = font.render("Space: Jump", 1, TEXT_COLOR_MAIN)
-        clabel4 = font.render("Escape: Quit!", 1, TEXT_COLOR_MAIN)
+        if game.player_energy >= PLAYER_ENERGY_DASH_COST:
+            clabel4 = font.render("Energy: {0} CTRL to dash!".format(int(game.player_energy)), 1, (180, 180, 255) )
+        else:
+            clabel4 = font.render("Energy: {0}".format(int(game.player_energy)), 1, (180, 180, 180) )
+            
+        
+        clabel5 = font.render("Escape: Quit!", 1, TEXT_COLOR_MAIN)
         
         # Blitting
         screen.blit(label, (int(SCREEN_WIDTH/2), 10))
@@ -181,7 +211,8 @@ class RenderHandler():
         screen.blit(clabel1, (30, 70))
         screen.blit(clabel2, (30, 95))
         screen.blit(clabel3, (30, 120))
-        screen.blit(clabel4, (SCREEN_WIDTH-200, 10))
+        screen.blit(clabel4, (30, 150))
+        screen.blit(clabel5, (SCREEN_WIDTH-200, 10))
             
         
         pygame.display.flip()    
@@ -200,6 +231,7 @@ class RenderHandler():
     def draw_objects(self):
         objects_to_remove = []
         for obj in game.objects:
+            # Remove objs who get too far offscreen
             if obj.body.position.y < -500:
                 objects_to_remove.append(obj)
             
@@ -209,37 +241,51 @@ class RenderHandler():
             obj.remove()
             game.dodged_objects += 1
         
+        
+    def flash_text(self, text):
+        # Display win text - make it flash in a few different colors
+        for color in ( TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50)  ):
+            label = font.render(text, 1, color)
+            screen.blit(label, (int(SCREEN_WIDTH/2)-100, 100))
+            pygame.display.flip()
+            time.sleep(.075)
     
 class InputHandler():
     
     def handle_keys(self):
         ''' Handle keypresses during game '''
         for event in pygame.event.get():
-            if event.type == KEYDOWN and event.key == K_LEFT:				
+            if event.type == KEYDOWN and event.key == K_LEFT:
+                game.adjust_player_energy(-PLAYER_ENERGY_MOVE_COST)
                 if player.body.velocity[0] > -PLAYER_VELOCITY_SIDEWAYS_MAX:
                     player.body.velocity[0] -= PLAYER_VELOCITY_SIDEWAYS_MAX
                 
             elif event.type == KEYDOWN and event.key == K_RIGHT:
+                game.adjust_player_energy(-PLAYER_ENERGY_MOVE_COST)
                 if player.body.velocity[0] < PLAYER_VELOCITY_SIDEWAYS_MAX:
                     player.body.velocity[0] += PLAYER_VELOCITY_SIDEWAYS_MAX
                     
             elif event.type == KEYDOWN and event.key == K_UP:
+                game.adjust_player_energy(-PLAYER_ENERGY_SPIN_COST)
                 if player.body.angular_velocity > -PLAYER_VELOCITY_ANGULAR_MAX:
                     player.body.angular_velocity -= PLAYER_VELOCITY_ANGULAR_AMT
                 
             elif event.type == KEYDOWN and event.key == K_DOWN:
+                game.adjust_player_energy(-PLAYER_ENERGY_SPIN_COST)
                 if player.body.angular_velocity < PLAYER_VELOCITY_ANGULAR_MAX:
                     player.body.angular_velocity += PLAYER_VELOCITY_ANGULAR_AMT
             
             elif event.type == KEYDOWN and event.key == K_SPACE:
                 points = player.shape.get_points()
                 if points[2][1] <= 100 and points[3][1] <= PLAYER_JUMP_THRESHHOLD:
+                    game.adjust_player_energy(-PLAYER_ENERGY_JUMP_COST)
                     player.body.velocity[1] += PLAYER_VELOCITY_JUMP_AMT
                     
                     
-            if event.type == KEYDOWN and event.key == K_LCTRL:
-                player.body.velocity[0] -= 700
-                player.body.velocity[1] += 100
+            if event.type == KEYDOWN and (event.key == K_LCTRL or event.key == K_RCTRL) and game.player_energy >= PLAYER_ENERGY_DASH_COST:
+                game.adjust_player_energy(-PLAYER_ENERGY_DASH_COST)
+                player.body.velocity[0] = PLAYER_VELOCITY_DASH_X
+                player.body.velocity[1] = PLAYER_VELOCITY_DASH_Y
                 
                 
             # Huh?
@@ -268,6 +314,8 @@ class GameWorld:
         self.current_level = 1
         self.dodged_objects = 0
         
+        self.player_energy = PLAYER_ENERGY_START
+        
         # Find all files in the projectiles folder (non-images would cause a crash for now). These will be randomly chosen from
         self.projectiles = [os.path.join('assets', 'projectiles', img) for img in os.listdir(os.path.join('assets', 'projectiles'))]
         # Same for music files
@@ -277,12 +325,17 @@ class GameWorld:
     def start_level(self):
         global player
         
+        # Make sure the event buffer is clear
+        for event in pygame.event.get():
+            pass
+        
+        
         self.lines = [] 
         self.objects = []
         
         self.space = None
         self.space = pymunk.Space()
-        self.space._set_gravity((GRAV_DOWN, GRAV_RIGHT))
+        self.space._set_gravity((GRAV_VERT, GRAV_HORIZ))
         
         # Horizontal
         self.add_line(-100, -15, SCREEN_WIDTH+100, -15, visible=1)
@@ -315,12 +368,21 @@ class GameWorld:
         
         else:
             # Black background rectangle - first tuple is color, second is (x y width height), last argument is rect border (0 for totally filled in)
-            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 450, 100), 0)
+            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 100), 0)
             llabel = font.render('Press left arrow to begin next level', 1, TEXT_COLOR_MAIN)
             screen.blit(llabel, (int(SCREEN_WIDTH/2)-200, 120))
             pygame.display.flip()
         # Wait for user input to begin the level    
         input_handler.handle_level_begin()
+            
+            
+    def end_level(self):
+        for obj in self.objects[:]:
+            if obj != player:
+                self.dodged_objects += 1
+        
+        # Will cause the Delongs dodged count to go up
+        render_handler.render_all()
             
         
     def spawn_projectile(self, image):
@@ -367,6 +429,9 @@ class GameWorld:
             image = random.choice(self.projectiles)
             self.spawn_projectile(image=image)
         
+    def adjust_player_energy(self, amount):
+        self.player_energy = min(PLAYER_ENERGY_MAX, self.player_energy + amount)
+    
     
     
 def main():
@@ -390,8 +455,7 @@ def main():
     game.start_level()
     
     exit_game = False
-    while not exit_game:
-        
+    while not exit_game: 
         #spawn stuff
         game.check_for_spawn_based_on_level()
         # Handle keys and check for exit
@@ -402,39 +466,36 @@ def main():
         # Advance game pace
         game.space.step(1/50.0)
         clock.tick(50)	
-
+        game.adjust_player_energy(PLAYER_ENERGY_PER_TICK)
+    
         # Level is won!
-        if player.body.position[0] < 200:
-            for obj in game.objects[:]:
-                if obj != player:
-                    game.dodged_objects += 1
-
-            # Display win text - make it flash in a few different colors
-            for color in ( TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50)  ):
-                label = font.render('Level {0} complete'.format(game.current_level), 1, color)
-                screen.blit(label, (int(SCREEN_WIDTH/2)-100, 100))
-                pygame.display.flip()
-                time.sleep(.075)
+        if player.body.position[0] < 200:        
+            game.end_level()
             
-            # Clear the event buffer
-            for event in pygame.event.get():
-                pass
-
+            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 100), 0)
+            render_handler.flash_text('Level {0} complete'.format(game.current_level))
+            
             game.current_level += 1
             game.start_level()
             
         # Level is lost!
         elif player.body.position[0] > SCREEN_WIDTH + GRACE_ZONE:
-            label = font.render('Delong got the better of you.', 1, TEXT_COLOR_MAIN)
-            label2 = font.render('Press Left arrow to restart from Level 1', 1, TEXT_COLOR_MAIN)
-            screen.blit(label, (int(SCREEN_WIDTH/2)-200, 100))
-            screen.blit(label2, (int(SCREEN_WIDTH/2)-200, 150))
+            game.end_level()
+            
+            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 150), 0)
+            label = font.render('You cannot overcome the power of Delong.', 1, TEXT_COLOR_MAIN)
+            label2 = font.render('(You dodged {0} Delongs in {1} levels)'.format(game.dodged_objects, game.current_level), 1, TEXT_COLOR_MAIN)
+            label3 = font.render('Press left arrow to start from level 1', 1, TEXT_COLOR_MAIN)
+            screen.blit(label, (int(SCREEN_WIDTH/2)-200, 110))
+            screen.blit(label2, (int(SCREEN_WIDTH/2)-200, 145))
+            screen.blit(label3, (int(SCREEN_WIDTH/2)-200, 180))
             pygame.display.flip()
+            
+            input_handler.handle_level_begin()
             
             game.current_level = 1
             game.dodged_objects = 0
             game.start_level()
-    
     
 if __name__ == '__main__':
     sys.exit(main())
