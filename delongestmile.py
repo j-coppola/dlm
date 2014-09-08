@@ -378,7 +378,7 @@ def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("DeLongest Mile")
     
-    bg = pygame.image.load(os.path.join('assets', 'tyemill.jpg'))
+    bg = pygame.image.load(os.path.join('assets', 'background.jpg'))
     bg = pygame.transform.scale(bg, (SCREEN_WIDTH, SCREEN_HEIGHT) )
     
     input_handler = InputHandler()
