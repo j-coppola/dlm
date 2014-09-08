@@ -197,7 +197,7 @@ class RenderHandler():
         clabel2 = font.render("Up / down arrows: rotate", 1, TEXT_COLOR_MAIN)
         clabel3 = font.render("Space: Jump", 1, TEXT_COLOR_MAIN)
         if game.player_energy >= PLAYER_ENERGY_DASH_COST:
-            clabel4 = font.render("Energy: {0} CTRL to dash!".format(int(game.player_energy)), 1, (180, 180, 255) )
+            clabel4 = font.render("Energy: {0} (CTRL to dash!)".format(int(game.player_energy)), 1, (180, 180, 255) )
         else:
             clabel4 = font.render("Energy: {0}".format(int(game.player_energy)), 1, (180, 180, 180) )
             
