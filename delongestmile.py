@@ -359,7 +359,8 @@ class GameWorld:
             des2 = 'Move towards my desk by mashing the left arrow key!'
             des3 = 'Awkwardly spin me by pressing up or down arrow keys!'
             des4 = 'Press the spacebar to jump when you are near the ground!'
-            descs = [des1, des2, des3, des4, '', 'Beware: Delongs increase in number and mass each level!',  '', 'Press left arrow to begin! (Escape to exit)']
+            des5 = 'Press control when energy is at least {0} to dash!'.format(int(PLAYER_ENERGY_DASH_COST))
+            descs = [des1, des2, des3, des4, des5, '', 'Beware: Delongs increase in number and mass each level!',  '', 'Press left arrow to begin! (Escape to exit)']
             for i, line in enumerate(descs):
                 label = font.render(line, 1, (200, 50, 50))
                 screen.blit(label, (350, 60+(i*30)))
@@ -470,16 +471,19 @@ def main():
     
         # Level is won!
         if player.body.position[0] < 200:        
-            game.end_level()
-            
             pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 100), 0)
             render_handler.flash_text('Level {0} complete'.format(game.current_level))
+            
+            game.end_level()
             
             game.current_level += 1
             game.start_level()
             
         # Level is lost!
         elif player.body.position[0] > SCREEN_WIDTH + GRACE_ZONE:
+            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 100), 0)
+            render_handler.flash_text('Game Over!'.format(game.current_level))
+            
             game.end_level()
             
             pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 150), 0)
@@ -495,6 +499,7 @@ def main():
             
             game.current_level = 1
             game.dodged_objects = 0
+            game.player_energy = PLAYER_ENERGY_START
             game.start_level()
     
 if __name__ == '__main__':
