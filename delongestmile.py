@@ -163,6 +163,7 @@ class RenderHandler():
         self.draw_objects()
         self.draw_lines()
         
+        
         # display level
         label = font.render("Level " + str(game.current_level), 1, TEXT_COLOR_MAIN)
         dlabel = font.render("Dodged %i Delongs so far"%game.dodged_objects, 1, TEXT_COLOR_MAIN)
@@ -297,18 +298,27 @@ class GameWorld:
             if PLAY_MUSIC:
                 pygame.mixer.music.load(random.choice(self.music_files))
                 pygame.mixer.music.play(-1)
+            
+            # Black background rectangle - first tuple is color, second is (x y width height), last argument is rect border (0 for totally filled in)
+            pygame.draw.rect(screen, (0, 0, 0), (325, 40, 625, 300), 0)
             # Render some descriptive text on the first level
             des1 = 'Oh no! I just realized I forgot to lock my computer!'
-            des2 = 'Move towards my desk by repeatedly tapping the left arrow key!'
+            des2 = 'Move towards my desk by mashing the left arrow key!'
             des3 = 'Awkwardly spin me by pressing up or down arrow keys!'
-            des4 = 'Press the spacebar to dodge incoming Delongs when you are near the ground!'
-            descs = [des1, des2, des3, des4, '', 'Press left arrow to begin! (Escape will exit to menu)']
+            des4 = 'Press the spacebar to jump when you are near the ground!'
+            descs = [des1, des2, des3, des4, '', 'Beware: Delongs increase in number and mass each level!',  '', 'Press left arrow to begin! (Escape to exit)']
             for i, line in enumerate(descs):
                 label = font.render(line, 1, (200, 50, 50))
-                screen.blit(label, (400, 40+(i*40)))
+                screen.blit(label, (350, 60+(i*30)))
         
             pygame.display.flip()
-            
+        
+        else:
+            # Black background rectangle - first tuple is color, second is (x y width height), last argument is rect border (0 for totally filled in)
+            pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 450, 100), 0)
+            llabel = font.render('Press left arrow to begin next level', 1, TEXT_COLOR_MAIN)
+            screen.blit(llabel, (int(SCREEN_WIDTH/2)-200, 120))
+            pygame.display.flip()
         # Wait for user input to begin the level    
         input_handler.handle_level_begin()
             
@@ -360,8 +370,7 @@ class GameWorld:
     
     
 def main():
-    global clock, bg, player
-    global screen, font, game, input_handler, render_handler
+    global clock, bg, screen, font, game, input_handler, render_handler
     
     pygame.init()
     font = pygame.font.Font("freesansbold.ttf", 20) 
@@ -400,19 +409,16 @@ def main():
                 if obj != player:
                     game.dodged_objects += 1
 
-            # Display win text
-            label = font.render('Level {0} complete'.format(game.current_level), 1, TEXT_COLOR_MAIN)
-            screen.blit(label, (SCREEN_WIDTH/2, 100))
-            pygame.display.flip()
-            time.sleep(1.5)
+            # Display win text - make it flash in a few different colors
+            for color in ( TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50), TEXT_COLOR_MAIN, (200, 50, 50), (200, 200, 50)  ):
+                label = font.render('Level {0} complete'.format(game.current_level), 1, color)
+                screen.blit(label, (int(SCREEN_WIDTH/2)-100, 100))
+                pygame.display.flip()
+                time.sleep(.075)
             
             # Clear the event buffer
             for event in pygame.event.get():
                 pass
-            
-            llabel = font.render('Press left arrow to begin next level', 1, TEXT_COLOR_MAIN)
-            screen.blit(llabel, (SCREEN_WIDTH/2, 120))
-            pygame.display.flip()
 
             game.current_level += 1
             game.start_level()
@@ -421,14 +427,14 @@ def main():
         elif player.body.position[0] > SCREEN_WIDTH + GRACE_ZONE:
             label = font.render('Delong got the better of you.', 1, TEXT_COLOR_MAIN)
             label2 = font.render('Press Left arrow to restart from Level 1', 1, TEXT_COLOR_MAIN)
-            screen.blit(label, (SCREEN_WIDTH/2, 100))
-            screen.blit(label2, (SCREEN_WIDTH/2, 150))
+            screen.blit(label, (int(SCREEN_WIDTH/2)-200, 100))
+            screen.blit(label2, (int(SCREEN_WIDTH/2)-200, 150))
             pygame.display.flip()
             
             game.current_level = 1
             game.dodged_objects = 0
             game.start_level()
     
+    
 if __name__ == '__main__':
-    #sys.exit(main())
     sys.exit(main())
