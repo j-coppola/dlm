@@ -300,11 +300,18 @@ class InputHandler():
         while 1:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
-                    if event.key == K_LEFT or K_SPACE:
+                    if event.key == K_LEFT or event.key == K_SPACE:
                         return
                 elif event.type == QUIT:
                     return
     
+    def handle_lose_game(self):
+        ''' Shorter function to wait on some basic user input (return) '''
+        while 1:
+            for event in pygame.event.get():
+                if event.type == KEYDOWN:
+                    if event.key == K_RETURN:
+                        return    
     
 class GameWorld:
     def __init__(self):        
@@ -489,13 +496,13 @@ def main():
             pygame.draw.rect(screen, (0, 0, 0), (int(SCREEN_WIDTH/2)-225, 95, 475, 150), 0)
             label = font.render('You cannot overcome the power of Delong.', 1, TEXT_COLOR_MAIN)
             label2 = font.render('(You dodged {0} Delongs in {1} levels)'.format(game.dodged_objects, game.current_level), 1, TEXT_COLOR_MAIN)
-            label3 = font.render('Press left arrow to start from level 1', 1, TEXT_COLOR_MAIN)
+            label3 = font.render('Press RETURN to start from level 1', 1, (180, 180, 255) )
             screen.blit(label, (int(SCREEN_WIDTH/2)-200, 110))
             screen.blit(label2, (int(SCREEN_WIDTH/2)-200, 145))
             screen.blit(label3, (int(SCREEN_WIDTH/2)-200, 180))
             pygame.display.flip()
             
-            input_handler.handle_level_begin()
+            input_handler.handle_lose_game()
             
             game.current_level = 1
             game.dodged_objects = 0
