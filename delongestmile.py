@@ -8,91 +8,104 @@ from pymunk import Vec2d
 import math
 import os
 import time
+import ConfigParser
 
-
-SCREEN_WIDTH = 1200
-SCREEN_HEIGHT = 700
 
 TEXT_COLOR_MAIN = (255, 255, 255)
-PLAY_MUSIC = 1
 
-PYMUNK_Y_OFFSET = SCREEN_HEIGHT # No idea 
+
+config = ConfigParser.ConfigParser()
+config.read('delongestmile.ini')
+
+################## BASIC GAME PARAMETERS ######################
+SCREEN_WIDTH = int(config.get('game', 'SCREEN_WIDTH'))
+SCREEN_HEIGHT = int(config.get('game', 'SCREEN_HEIGHT'))
+
+PLAY_MUSIC = config.getboolean('game', 'PLAY_MUSIC')
 
 # How far off to the right of the screen you can go before losing (in pixels)
-GRACE_ZONE = 250
+GRACE_ZONE = int(config.get('game', 'GRACE_ZONE'))
 
 # Default friction for objects
-DEFAULT_FRICTION_AMT = .5
+DEFAULT_FRICTION_AMT = float(config.get('game', 'DEFAULT_FRICTION_AMT'))
 
 # Downward gravity (negative will cause things to drop upwards)
-GRAV_DOWN = 200
+GRAV_DOWN = int(config.get('game', 'GRAV_DOWN'))
 # Left / right gravity (negative is right)
-GRAV_RIGHT = -300
+GRAV_RIGHT = int(config.get('game', 'GRAV_RIGHT'))
+
+############## PROJECTILE PARAMETERS ###########################
+# Every tick, the game rolls a number between 1 and 1000. 
+# If the number is less than (PROJECTILE_SPAWN_CHANCE_BASE + (<current level> * PROJECTILE_SPAWN_CHANCE_LEVEL),
+# a projectile is spawned. 
+PROJECTILE_SPAWN_CHANCE_BASE  = int(config.get('projectile', 'PROJECTILE_SPAWN_CHANCE_BASE'))
+PROJECTILE_SPAWN_CHANCE_LEVEL = int(config.get('projectile', 'PROJECTILE_SPAWN_CHANCE_LEVEL'))
 
 # The Y value (pixels) of newly spawned projectiles will be between these values
-INITIAL_PROJECTILE_Y_LOW  = 100
-INITIAL_PROJECTILE_Y_HIGH = 500
+PROJECTILE_INITIAL_Y_LOW  = int(config.get('projectile', 'PROJECTILE_INITIAL_Y_LOW'))
+PROJECTILE_INITIAL_Y_HIGH = int(config.get('projectile', 'PROJECTILE_INITIAL_Y_HIGH'))
 
 # How heavy projectiles are at the beginning of the game
-PROJECTILE_MASS_INITIAL = 15
+PROJECTILE_MASS_INITIAL = float(config.get('projectile', 'PROJECTILE_MASS_INITIAL'))
 # How much each additional level adds to the mass
-PROJECTILE_MASS_INCREMENT = 10
+PROJECTILE_MASS_INCREMENT = float(config.get('projectile', 'PROJECTILE_MASS_INCREMENT'))
 
 # controls bouncieness of projectiles (between 0 and .99)
-PROJECTILE_ELASTICITY = .5
+PROJECTILE_ELASTICITY = float(config.get('projectile', 'PROJECTILE_ELASTICITY'))
 
 # Base size of projectile
-PROJECTILE_SIZE_BASE = 1
+PROJECTILE_SIZE_BASE = float(config.get('projectile', 'PROJECTILE_SIZE_BASE'))
 # How much each additional level adds onto the base projectile size (decimals OK)
-PROJECTILE_SIZE_LEVEL_MODIFIER = 0
+PROJECTILE_SIZE_LEVEL_MODIFIER = float(config.get('projectile', 'PROJECTILE_SIZE_LEVEL_MODIFIER'))
 
 # Controls the starting velocity of projectiles (picks a random integer between the high and low values)
-PROJECTILE_X_VELOCITY_LOW  = 400
-PROJECTILE_X_VELOCITY_HIGH = 550
+PROJECTILE_X_VELOCITY_LOW  = int(config.get('projectile', 'PROJECTILE_X_VELOCITY_LOW'))
+PROJECTILE_X_VELOCITY_HIGH = int(config.get('projectile', 'PROJECTILE_X_VELOCITY_HIGH'))
 
-PROJECTILE_Y_VELOCITY_LOW  = 15
-PROJECTILE_Y_VELOCITY_HIGH = 150
+PROJECTILE_Y_VELOCITY_LOW  = int(config.get('projectile', 'PROJECTILE_Y_VELOCITY_LOW'))
+PROJECTILE_Y_VELOCITY_HIGH = int(config.get('projectile', 'PROJECTILE_Y_VELOCITY_HIGH'))
 
+############# PLAYER PARAMETERS ###################################
 # Starting X velocity of the player (negative is left)
-PLAYER_STARTING_VELOCITY = -150
+PLAYER_STARTING_VELOCITY = int(config.get('player', 'PLAYER_STARTING_VELOCITY'))
 
-PLAYER_VELOCITY_SIDEWAYS_MAX = 150
+PLAYER_VELOCITY_SIDEWAYS_MAX = int(config.get('player', 'PLAYER_VELOCITY_SIDEWAYS_MAX'))
 # Max angular velocity
-PLAYER_VELOCITY_ANGULAR_MAX = 8
+PLAYER_VELOCITY_ANGULAR_MAX = int(config.get('player', 'PLAYER_VELOCITY_ANGULAR_MAX'))
 # How much angular velocity each click of the rotate buttons will cause
-PLAYER_VELOCITY_ANGULAR_AMT = 3
+PLAYER_VELOCITY_ANGULAR_AMT = int(config.get('player', 'PLAYER_VELOCITY_ANGULAR_AMT'))
 
 # How close to the ground your feet have to be to jump (pixels)
-PLAYER_JUMP_THRESHHOLD = 100
+PLAYER_JUMP_THRESHHOLD = int(config.get('player', 'PLAYER_JUMP_THRESHHOLD'))
 # How much verticle velocity a jump adds
-PLAYER_VELOCITY_JUMP_AMT = 250
+PLAYER_VELOCITY_JUMP_AMT = int(config.get('player', 'PLAYER_VELOCITY_JUMP_AMT'))
 
-PLAYER_MASS = 100
-
-
+PLAYER_MASS = int(config.get('player', 'PLAYER_MASS'))
 
 
 
-
-def to_pygame(x, y):
+def pymunk_to_pygame(x, y):
     """Small hack to convert pymunk to pygame coordinates"""
-    return x, -y + PYMUNK_Y_OFFSET
+    return x, -y + SCREEN_HEIGHT
 
     
 def load_image(path):
-    # From http://www.pygame.org/docs/tut/chimp/ChimpLineByLine.html
+    # Adapted from http://www.pygame.org/docs/tut/chimp/ChimpLineByLine.html
     try:
         image = pygame.image.load(path)
+        
     except pygame.error, message:
         print 'Cannot load image:', path
         raise SystemExit, message
+        
     image = image.convert_alpha()
+    
     return image, image.get_rect()
     
         
-class GObject(pygame.sprite.Sprite):
+class GameObject(pygame.sprite.Sprite):
     ''' An object in the game '''
-    def __init__(self, space, x, y, mass, sprite, sprite_size=None):
+    def __init__(self, space, x, y, mass, sprite, sprite_size=1):
         pygame.sprite.Sprite.__init__(self)
     
         self.image, self.rect = load_image(sprite)
@@ -102,8 +115,7 @@ class GObject(pygame.sprite.Sprite):
         self.height = self.rect[3]
         
         # This will resize the sprite if we've resized it
-        if sprite_size:
-            self.image = pygame.transform.scale(self.image, (int(self.width * sprite_size), int(self.height * sprite_size) ))
+        self.image = pygame.transform.scale(self.image, (int(self.width * sprite_size), int(self.height * sprite_size) ))
     
         self.space = space
         self.mass = mass
@@ -127,7 +139,7 @@ class GObject(pygame.sprite.Sprite):
     def draw(self):	
         ''' Took me 6 goddamn days to get this code correct... '''		
         p = self.body.position
-        p = Vec2d(to_pygame(p.x, p.y))
+        p = Vec2d(pymunk_to_pygame(p.x, p.y))
         
         angle_degrees = math.degrees(self.body.angle)
         rotated_img = pygame.transform.rotate(self.image, angle_degrees)
@@ -151,26 +163,24 @@ class RenderHandler():
         self.draw_objects()
         self.draw_lines()
         
-
         # display level
         label = font.render("Level " + str(game.current_level), 1, TEXT_COLOR_MAIN)
         dlabel = font.render("Dodged %i Delongs so far"%game.dodged_objects, 1, TEXT_COLOR_MAIN)
         
-        #### controls
-        clabel1 = font.render("Left arrow (keep tapping): move left", 1, TEXT_COLOR_MAIN)
-        clabel2 = font.render("Up / down arrows: awkwardly rotate", 1, TEXT_COLOR_MAIN)
+        # controls
+        clabel1 = font.render("Left arrow (mash): move left", 1, TEXT_COLOR_MAIN)
+        clabel2 = font.render("Up / down arrows: rotate", 1, TEXT_COLOR_MAIN)
         clabel3 = font.render("Space: Jump", 1, TEXT_COLOR_MAIN)
         clabel4 = font.render("Escape: Quit!", 1, TEXT_COLOR_MAIN)
         
         # Blitting
-        screen.blit(label, (30, 40))
-        screen.blit(dlabel, (30, 60))
-        #screen.blit(tlabel, (int(SCREEN_WIDTH/2), 65))
+        screen.blit(label, (int(SCREEN_WIDTH/2), 10))
+        screen.blit(dlabel, (30, 30))
         
-        screen.blit(clabel1, (30, 115))
-        screen.blit(clabel2, (30, 140))
-        screen.blit(clabel3, (30, 165))
-        screen.blit(clabel4, (30, 190))
+        screen.blit(clabel1, (30, 70))
+        screen.blit(clabel2, (30, 95))
+        screen.blit(clabel3, (30, 120))
+        screen.blit(clabel4, (SCREEN_WIDTH-200, 10))
             
         
         pygame.display.flip()    
@@ -181,8 +191,8 @@ class RenderHandler():
             body = line.body
             pv1 = body.position + line.a.rotated(body.angle)
             pv2 = body.position + line.b.rotated(body.angle)
-            p1 = to_pygame(pv1.x, pv1.y)
-            p2 = to_pygame(pv2.x, pv2.y)
+            p1 = pymunk_to_pygame(pv1.x, pv1.y)
+            p2 = pymunk_to_pygame(pv2.x, pv2.y)
             pygame.draw.lines(screen, THECOLORS["gray"], False, [p1, p2])
 
         
@@ -229,6 +239,7 @@ class InputHandler():
             if event.type == KEYDOWN and event.key == K_LCTRL:
                 player.body.velocity[0] -= 700
                 player.body.velocity[1] += 100
+                
                 
             # Huh?
             elif event.type == QUIT:
@@ -277,7 +288,7 @@ class GameWorld:
         # Vertical
         #add_line(25, 250, 25, SCREEN_HEIGHT * 2, visible=1)
         
-        player = self.add_object(x=1000, y=100, mass=PLAYER_MASS, sprite=os.path.join('assets', 'player.png'))
+        player = self.add_object(x=SCREEN_WIDTH-200, y=100, mass=PLAYER_MASS, sprite=os.path.join('assets', 'player.png'))
         player.body.velocity[0] = PLAYER_STARTING_VELOCITY        
         
         render_handler.render_all()
@@ -304,7 +315,7 @@ class GameWorld:
         
     def spawn_projectile(self, image):
         ''' Handles spawning a projectile (in this case, Delong) '''
-        y = random.randint(INITIAL_PROJECTILE_Y_LOW, INITIAL_PROJECTILE_Y_HIGH)
+        y = random.randint(PROJECTILE_INITIAL_Y_LOW, PROJECTILE_INITIAL_Y_HIGH)
 
         mass = PROJECTILE_MASS_INITIAL + (PROJECTILE_MASS_INCREMENT * (game.current_level-1))
         
@@ -321,9 +332,9 @@ class GameWorld:
             
         return projectile
         
-    def add_object(self, x, y, mass, sprite, sprite_size=None):
+    def add_object(self, x, y, mass, sprite, sprite_size=1):
         ''' Adds an object to the game space '''
-        obj = GObject(self.space, x, y, mass,  sprite, sprite_size)
+        obj = GameObject(self.space, x, y, mass,  sprite, sprite_size)
         self.objects.append(obj)
     
         return obj
@@ -342,7 +353,7 @@ class GameWorld:
         self.space.add(line)
 
     def check_for_spawn_based_on_level(self):
-        if random.randint(1, 1000) <= 75 + ((self.current_level+4)**2):
+        if random.randint(1, 1000) <= PROJECTILE_SPAWN_CHANCE_BASE + ((self.current_level-1) * PROJECTILE_SPAWN_CHANCE_LEVEL):
             image = random.choice(self.projectiles)
             self.spawn_projectile(image=image)
         
