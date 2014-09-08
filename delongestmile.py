@@ -295,23 +295,27 @@ class InputHandler():
             elif event.type == KEYDOWN and event.key == K_ESCAPE:
                 return True
                 
-    def handle_level_begin(self):
+    def get_input_for_level_begin(self):
         ''' Shorter function to wait on some basic user input'''
         while 1:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
                     if event.key == K_LEFT or event.key == K_SPACE:
                         return
+                    elif event.key == K_ESCAPE:
+                        sys.exit()
                 elif event.type == QUIT:
                     return
     
-    def handle_lose_game(self):
+    def get_input_for_lose_game(self):
         ''' Shorter function to wait on some basic user input (return) '''
         while 1:
             for event in pygame.event.get():
                 if event.type == KEYDOWN:
                     if event.key == K_RETURN:
-                        return    
+                        return
+                    elif event.key == K_ESCAPE:
+                        sys.exit()
     
 class GameWorld:
     def __init__(self):        
@@ -381,7 +385,7 @@ class GameWorld:
             screen.blit(llabel, (int(SCREEN_WIDTH/2)-200, 120))
             pygame.display.flip()
         # Wait for user input to begin the level    
-        input_handler.handle_level_begin()
+        input_handler.get_input_for_level_begin()
             
             
     def end_level(self):
@@ -502,7 +506,7 @@ def main():
             screen.blit(label3, (int(SCREEN_WIDTH/2)-200, 180))
             pygame.display.flip()
             
-            input_handler.handle_lose_game()
+            input_handler.get_input_for_lose_game()
             
             game.current_level = 1
             game.dodged_objects = 0
